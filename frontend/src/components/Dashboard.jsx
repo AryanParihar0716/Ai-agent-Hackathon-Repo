@@ -19,26 +19,47 @@ export default function Dashboard() {
     // 1 ── Open production WebSocket listener connecting back to backend port
     const socket = new WebSocket('wss://codepulse-backend-fie8.onrender.com');
 
+    const updateDistributionMetrics = (historyData) => {
+      if (!historyData || historyData.length === 0) return;
+      
+      const updatedDist = [
+        { name: 'Security', value: 0 },
+        { name: 'Performance', value: 0 },
+        { name: 'Code Smell', value: 0 }
+      ];
+
+      historyData.forEach(item => {
+        if (item.categories) {
+          item.categories.forEach(cat => {
+            const match = updatedDist.find(d => d.name === cat);
+            if (match) match.value += 1;
+          });
+        }
+      });
+      setDistribution(updatedDist);
+    };
+
     const handleIncomingTelemetry = (socketData) => {
       if (socketData.type === 'INITIALIZE_PANEL') {
         setScore(socketData.score);
         setHistory(socketData.history || []);
+        updateDistributionMetrics(socketData.history);
       } else if (socketData.type === 'SCORE_TELEMETRY') {
         setScore(socketData.score);
         
-        // Climax Trigger: If an AI automated fix has merged, rain down hackathon confetti
         if (socketData.prMeta?.action === 'REMEDIATION_RESOLVED') {
           confetti({ particleCount: 140, spread: 70, origin: { y: 0.6 } });
+          setDistribution([
+            { name: 'Security', value: 0 },
+            { name: 'Performance', value: 0 },
+            { name: 'Code Smell', value: 0 }
+          ]);
         } else if (socketData.prMeta) {
-          setHistory(prev => [socketData.prMeta, ...prev]);
-          
-          // Dynamically increment pie chart distributions from incoming metrics
-          if (socketData.prMeta.categories) {
-            setDistribution(current => current.map(item => {
-              const matches = socketData.prMeta.categories.filter(cat => cat === item.name).length;
-              return { ...item, value: item.value + matches };
-            }));
-          }
+          setHistory(prev => {
+            const newHistory = [socketData.prMeta, ...prev];
+            updateDistributionMetrics(newHistory);
+            return newHistory;
+          });
         }
       }
     };
@@ -48,33 +69,17 @@ export default function Dashboard() {
     };
 
     // 2 ── ⚡ ZERO-FAIL HYBRID BACKUP: HTTP Polling Engine
-    // Pulls state from your backend API database if Render blocks persistent WebSockets
     const fetchCloudStateEngine = async () => {
       try {
         const response = await fetch('https://codepulse-backend-fie8.onrender.com/api/telemetry-state');
         if (response.ok) {
           const cloudState = await response.json();
           
-          if (cloudState.history && cloudState.history.length > 0) {
+          if (cloudState && typeof cloudState.score !== 'undefined') {
             setScore(cloudState.score);
-            setHistory(cloudState.history);
-            
-            // Recompute unified pie slices from the fetched historical array
-            const updatedDist = [
-              { name: 'Security', value: 0 },
-              { name: 'Performance', value: 0 },
-              { name: 'Code Smell', value: 0 }
-            ];
-            
-            cloudState.history.forEach(item => {
-              if (item.categories) {
-                item.categories.forEach(cat => {
-                  const match = updatedDist.find(d => d.name === cat);
-                  if (match) match.value += 1;
-                });
-              }
-            });
-            setDistribution(updatedDist);
+            const historyData = cloudState.history || [];
+            setHistory(historyData);
+            updateDistributionMetrics(historyData);
           }
         }
       } catch (err) {
@@ -82,7 +87,8 @@ export default function Dashboard() {
       }
     };
 
-    // Poll the cloud state server every 3 seconds to keep UI metrics perfectly unified
+    // Execute initial immediate poll then attach interval loop
+    fetchCloudStateEngine();
     const backupInterval = setInterval(fetchCloudStateEngine, 3000);
 
     return () => {

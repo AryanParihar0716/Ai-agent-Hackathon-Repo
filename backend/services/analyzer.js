@@ -1,88 +1,64 @@
-// ────────────────────────────────────────────────────────────
-//  Analyzer Service — sends PR diffs to Claude and extracts
-//  structured JSON findings with severity, category, and fix.
-// ────────────────────────────────────────────────────────────
+import { GoogleGenAI, Type } from '@google/genai';
 
-import Anthropic from '@anthropic-ai/sdk';
+// Initializes with your GEMINI_API_KEY environment variable by default
+const ai = new GoogleGenAI();
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-const SYSTEM_PROMPT = `You are CodePulse, an elite automated code reviewer. You receive a unified diff from a GitHub pull request and must identify real, actionable issues.
-
+const SYSTEM_PROMPT = `You are CodePulse, an elite automated code reviewer. You receive a unified diff from a GitHub pull request and must identify real, actionable security and performance issues.
 RULES:
 - Only report genuine problems. Do not flag stylistic preferences.
-- Each finding must include: file path, line number (from the new file), severity, category, a concise explanation, and a one-line code fix.
 - Severity MUST be one of: CRITICAL, WARNING, INFO
-- Category MUST be one of: Security, Performance, Code Smell
-- The "fixedCode" should be the corrected replacement for that single line.
+- Category MUST be one of: Security, Performance, Code Smell`;
 
-Respond with ONLY a JSON array — no markdown fences, no commentary.
+// Define the precise JSON Schema for Gemini's structured output engine
+const responseSchema = {
+  type: Type.ARRAY,
+  description: "List of code review findings",
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      file: { type: Type.STRING, description: "The relative path to the file" },
+      line: { type: Type.INTEGER, description: "The new file line number where the issue exists" },
+      severity: { type: Type.STRING, enum: ["CRITICAL", "WARNING", "INFO"] },
+      category: { type: Type.STRING, enum: ["Security", "Performance", "Code Smell"] },
+      comment: { type: Type.STRING, description: "Concise explanation of the issue" },
+      fixedCode: { type: Type.STRING, description: "Corrected single-line replacement snippet" },
+    },
+    required: ["file", "line", "severity", "category", "comment", "fixedCode"],
+  },
+};
 
-Schema per finding:
-{
-  "file": "<path>",
-  "line": <number>,
-  "severity": "CRITICAL" | "WARNING" | "INFO",
-  "category": "Security" | "Performance" | "Code Smell",
-  "comment": "<concise explanation of the issue>",
-  "fixedCode": "<corrected single-line replacement>"
-}
-
-If no issues are found, return an empty array: []`;
-
-/**
- * Analyze a unified diff and return structured findings.
- *
- * @param {string} diff — raw unified diff text
- * @returns {Promise<Array>} — parsed array of finding objects
- */
 export async function analyzeDiff(diff) {
-  console.log(`[Analyzer] Sending ${diff.length} chars of diff to Claude…`);
-
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 4096,
-    messages: [
-      {
-        role: 'user',
-        content: `Review the following GitHub pull request diff and return a JSON array of findings:\n\n${diff}`,
-      },
-    ],
-    system: SYSTEM_PROMPT,
-  });
-
-  // Extract the text block from Claude's response
-  const raw = message.content
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text)
-    .join('');
+  console.log(`[Analyzer] Sending ${diff.length} chars of diff to Gemini…`);
 
   try {
-    const findings = JSON.parse(raw);
-    console.log(`[Analyzer] Claude returned ${findings.length} finding(s)`);
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash', // Lightning fast, perfect for live webhook loops
+      contents: `Review the following GitHub pull request diff and map out code anomalies:\n\n${diff}`,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        // Enforce structural validation boundaries natively
+        responseMimeType: "application/json",
+        responseSchema: responseSchema,
+        temperature: 0.2,
+      }
+    });
+
+    // Gemini returns clean, guaranteed structural JSON text directly matching your array schema
+    const findings = JSON.parse(response.text);
+    console.log(`[Analyzer] Gemini returned ${findings.length} finding(s)`);
     return Array.isArray(findings) ? findings : [];
+
   } catch (err) {
-    console.error('[Analyzer] Failed to parse Claude response:', raw.slice(0, 300));
+    console.error('[Analyzer] Failed during Gemini pipeline extraction:', err);
     return [];
   }
 }
 
-/**
- * Compute a health score from findings.
- * Starts at 100, deducts per severity level.
- *
- * @param {Array} findings
- * @returns {number} score clamped to [0, 100]
- */
 export function computeScore(findings) {
   const penalties = { CRITICAL: 15, WARNING: 5, INFO: 1 };
   let score = 100;
-
   for (const f of findings) {
     score -= penalties[f.severity] || 0;
   }
-
   return Math.max(0, Math.min(100, score));
 }

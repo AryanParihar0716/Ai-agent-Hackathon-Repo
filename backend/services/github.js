@@ -135,7 +135,7 @@ export async function createFixPR(owner, repo, baseBranch, baseSha, originalPR, 
       '**Review carefully before merging.** Merging this PR will restore the health score on the dashboard.',
       '',
       '---',
-      '_Powered by Claude claude-sonnet-4-20250514 + CodePulse Engine_',
+      '_Powered by  CodePulse Engine_',
     ].join('\n'),
   });
 

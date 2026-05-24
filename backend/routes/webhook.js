@@ -2,8 +2,8 @@
 //  Webhook Route — handles incoming GitHub pull_request events.
 //
 //  Supported actions:
-//    • opened / synchronize  → run AI review pipeline
-//    • closed (merged)       → check if it's a CodePulse fix PR
+//    • opened / synchronize / reopened → run Gemini AI review pipeline
+//    • closed (merged)                → check if it's a CodePulse fix PR
 // ────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
@@ -41,8 +41,8 @@ router.post('/', async (req, res) => {
     return res.status(200).json({ status: 'closed_ignored' });
   }
 
-  // ── Only run the pipeline for opened or synchronize ──
- if (action !== 'opened' && action !== 'synchronize' && action !== 'reopened') {
+  // ── Only run the pipeline for opened, synchronize, or reopened ──
+  if (action !== 'opened' && action !== 'synchronize' && action !== 'reopened') {
     console.log(`[Webhook] Action ignored: ${action}`);
     return res.status(200).json({ status: 'action_ignored', action });
   }
@@ -60,8 +60,8 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    // 2 ── Analyze with Claude
-    console.log('[Pipeline] Analyzing diff with Claude…');
+    // 2 ── Analyze with Gemini 🚀
+    console.log('[Pipeline] Analyzing diff with Gemini…');
     const findings = await analyzeDiff(diff);
 
     if (!findings.length) {
@@ -114,9 +114,9 @@ router.post('/', async (req, res) => {
     // 7 ── Broadcast score to dashboard (WebSocket channel fallback)
     broadcastScore(score, telemetryPayload);
 
-    console.log('[Pipeline] ✅ Review pipeline complete and cloud state updated');
+    console.log('[Pipeline] ✅ Gemini review pipeline complete and cloud state updated');
   } catch (err) {
-    console.error('[Pipeline] ❌ Error during review pipeline:', err);
+    console.error('[Pipeline] ❌ Error during Gemini review pipeline:', err);
   }
 });
 

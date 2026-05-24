@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 
 // Initializes with your GEMINI_API_KEY environment variable by default
-const ai = new GoogleGenAI();
+const ai = new GoogleGenAI({});
 
 const SYSTEM_PROMPT = `You are CodePulse, an elite automated code reviewer. You receive a unified diff from a GitHub pull request and must identify real, actionable security and performance issues.
 RULES:

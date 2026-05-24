@@ -21,7 +21,7 @@ app.use(express.json());
 
 // ─── Routes ─────────────────────────────────────────────
 app.use('/webhook', webhookRouter);
-
+app.get('/api/telemetry-state', authenticateToken, (req, res) => { res.status(200).json(getTelemetryStateForClient(telemetryState)); });
 // Health-check endpoint
 app.get('/', (_req, res) => {
   res.json({

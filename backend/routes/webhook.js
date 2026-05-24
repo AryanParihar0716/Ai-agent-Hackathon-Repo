@@ -101,16 +101,33 @@ router.post('/', async (req, res) => {
       await createFixPR(owner, repo, baseBranch, baseSha, pull_number, fixes);
     }
 
-    // 6 ── Broadcast score to dashboard
-    broadcastScore(score, {
+    // 6 ── Synchronize with the Dashboard Fallback Endpoint
+    const telemetryPayload = {
       title: pr.title,
       repo: `${owner}/${repo}`,
       defectCount: findings.length,
       peakSeverity,
       categories,
-    });
+    };
 
-    console.log('[Pipeline] ✅ Review pipeline complete');
+    // 💡 SAVE THE STATE GLOBALLY SO THE POLLING ENGINE CAN SEE IT
+    if (global.telemetryState) {
+      global.telemetryState.score = score;
+      
+      // Prevent duplicate logs from rendering if you hit "Redeliver" multiple times
+      const isDuplicate = global.telemetryState.history.some(
+        item => item.title === pr.title && item.repo === telemetryPayload.repo
+      );
+      
+      if (!isDuplicate) {
+        global.telemetryState.history.unshift(telemetryPayload);
+      }
+    }
+
+    // 7 ── Broadcast score to dashboard (WebSocket channel fallback)
+    broadcastScore(score, telemetryPayload);
+
+    console.log('[Pipeline] ✅ Review pipeline complete and cloud state updated');
   } catch (err) {
     console.error('[Pipeline] ❌ Error during review pipeline:', err);
   }

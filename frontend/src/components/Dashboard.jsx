@@ -81,7 +81,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
         <SecurityGauge score={score} />
 
-        {/* Recharts Pie Chart Block */}
+setScore(cloudState.score < 100 ? cloudState.score : CRITICAL_THREAT_SCORE_FLOOR);
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl flex flex-col justify-between">
           <h3 className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Anomaly Breakdown</h3>
           <div className="h-40 w-full">

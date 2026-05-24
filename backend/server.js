@@ -36,7 +36,7 @@ app.get('/', (_req, res) => {
 const server = createServer(app);
 initWebSocket(server);
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0',() => {
   console.log('');
   console.log('  ╔═══════════════════════════════════════════════╗');
   console.log('  ║                                               ║');

@@ -17,7 +17,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Open production WebSocket listener connecting back to backend port
-    const socket = new WebSocket('ws://localhost:5000');
+    const socket = new WebSocket('wss://codepulse-backend.onrender.com');
 
     socket.onmessage = (event) => {
       const socketData = JSON.parse(event.data);

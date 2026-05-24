@@ -84,7 +84,7 @@ export default function Dashboard() {
         {/* Recharts Pie Chart Block */}
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-2xl flex flex-col justify-between">
           <h3 className="text-xs font-bold tracking-widest text-slate-400 uppercase mb-4">Anomaly Breakdown</h3>
-          <div className="h-40 w-full">
+<div className="h-40 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={distribution} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={5} dataKey="value">

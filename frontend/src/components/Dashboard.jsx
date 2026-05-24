@@ -46,7 +46,7 @@ export default function Dashboard() {
     };
 
     return () => socket.close();
-  }, []);
+setScore(socketData.score);
 
   const renderBadge = (severity) => {
     const colorMatrix = {

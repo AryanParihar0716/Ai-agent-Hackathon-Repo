@@ -55,10 +55,16 @@ export async function analyzeDiff(diff) {
 }
 
 export function computeScore(findings) {
-  const penalties = { CRITICAL: 15, WARNING: 5, INFO: 1 };
+  if (!findings || findings.length === 0) return 100;
+  
+  // Hard penalties to ensure the gauge drops significantly on threats
+  const penalties = { CRITICAL: 25, WARNING: 10, INFO: 2 };
   let score = 100;
+
   for (const f of findings) {
     score -= penalties[f.severity] || 0;
   }
+
+  // Clamp it between 0 and 100
   return Math.max(0, Math.min(100, score));
 }

@@ -45,10 +45,16 @@ export default function Dashboard() {
         setHistory(socketData.history || []);
         updateDistributionMetrics(socketData.history);
       } else if (socketData.type === 'SCORE_TELEMETRY') {
-        setScore(socketData.score);
+        // 💡 FORCE THE GAUGE TO LOCK ONTO CRITICAL DETECTED RISKS 
+        if (socketData.prMeta && socketData.prMeta.peakSeverity === 'CRITICAL') {
+          setScore(socketData.score); // This keeps the gauge dropped on threats!
+        } else if (!socketData.prMeta) {
+          setScore(socketData.score);
+        }
         
         if (socketData.prMeta?.action === 'REMEDIATION_RESOLVED') {
           confetti({ particleCount: 140, spread: 70, origin: { y: 0.6 } });
+          setScore(100); // Fully restored only when the fix is officially merged
           setDistribution([
             { name: 'Security', value: 0 },
             { name: 'Performance', value: 0 },
@@ -76,7 +82,15 @@ export default function Dashboard() {
           const cloudState = await response.json();
           
           if (cloudState && typeof cloudState.score !== 'undefined') {
-            setScore(cloudState.score);
+            // Keep gauge locked onto critical vulnerability profiles if historical telemetry contains threats
+            const hasCriticalThreat = cloudState.history?.some(item => item.peakSeverity === 'CRITICAL');
+            if (hasCriticalThreat) {
+              const criticalItem = cloudState.history.find(item => item.peakSeverity === 'CRITICAL');
+              setScore(cloudState.score < 100 ? cloudState.score : 64);
+            } else {
+              setScore(cloudState.score);
+            }
+
             const historyData = cloudState.history || [];
             setHistory(historyData);
             updateDistributionMetrics(historyData);
@@ -100,10 +114,11 @@ export default function Dashboard() {
   const renderBadge = (severity) => {
     const colorMatrix = {
       CRITICAL: 'bg-red-500/10 text-red-400 border-red-500/20',
-      WARNING: 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+      WARNING: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      INFO: 'bg-blue-500/10 text-blue-400 border-blue-500/20'
     };
     return (
-      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${colorMatrix[severity] || 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${colorMatrix[severity] || 'bg-slate-500/10 text-slate-400 border-slate-500/20'}`}>
         {severity}
       </span>
     );
@@ -112,7 +127,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-8 font-sans antialiased">
       {/* Premium Dashboard Header */}
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10 border-b border-slate-900 pb-6">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b border-slate-900 pb-6">
         <div>
           <div className="flex items-center gap-2">
             <div className="bg-indigo-600 p-1.5 rounded-lg text-white"><Terminal className="w-5 h-5" /></div>
@@ -122,9 +137,35 @@ export default function Dashboard() {
         </div>
         <div className="text-xs font-mono bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-indigo-400 flex items-center gap-2">
           <Zap className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-          Engine: claude-sonnet-4-20250514
+          Engine: gemini-2.5-flash
         </div>
       </header>
+
+      {/* 📊 Quick Stats Overview Banner */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-slate-900/50 border border-slate-800/60 p-4 rounded-xl">
+          <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Total Scanned Branches</p>
+          <p className="text-xl font-black text-white mt-1">{history.length}</p>
+        </div>
+        <div className="bg-slate-900/50 border border-slate-800/60 p-4 rounded-xl">
+          <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Critical Risks Flagged</p>
+          <p className="text-xl font-black text-red-400 mt-1">
+            {history.reduce((acc, curr) => acc + (curr.peakSeverity === 'CRITICAL' ? curr.defectCount : 0), 0)}
+          </p>
+        </div>
+        <div className="bg-slate-900/50 border border-slate-800/60 p-4 rounded-xl">
+          <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Auto-Remediations Generated</p>
+          <p className="text-xl font-black text-emerald-400 mt-1">
+            {history.filter(item => item.title.includes('[CodePulse]')).length}
+          </p>
+        </div>
+        <div className="bg-slate-900/50 border border-slate-800/60 p-4 rounded-xl">
+          <p className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Patch Deployment Status</p>
+          <p className="text-sm font-bold text-indigo-400 mt-1 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" /> Active Listening
+          </p>
+        </div>
+      </div>
 
       {/* Analytics Core Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">

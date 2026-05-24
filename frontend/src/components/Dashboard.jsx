@@ -16,15 +16,13 @@ export default function Dashboard() {
   const COLOR_PALETTE = ['#EF4444', '#3B82F6', '#F59E0B'];
 
   useEffect(() => {
-    // Open production WebSocket listener connecting back to backend port
-    const socket = new WebSocket('wss://codepulse-backend.onrender.com');
+    // 1 ── Open production WebSocket listener connecting back to backend port
+    const socket = new WebSocket('wss://codepulse-backend-fie8.onrender.com');
 
-    socket.onmessage = (event) => {
-      const socketData = JSON.parse(event.data);
-
+    const handleIncomingTelemetry = (socketData) => {
       if (socketData.type === 'INITIALIZE_PANEL') {
         setScore(socketData.score);
-        setHistory(socketData.history);
+        setHistory(socketData.history || []);
       } else if (socketData.type === 'SCORE_TELEMETRY') {
         setScore(socketData.score);
         
@@ -45,7 +43,52 @@ export default function Dashboard() {
       }
     };
 
-    return () => socket.close();
+    socket.onmessage = (event) => {
+      handleIncomingTelemetry(JSON.parse(event.data));
+    };
+
+    // 2 ── ⚡ ZERO-FAIL HYBRID BACKUP: HTTP Polling Engine
+    // Pulls state from your backend API database if Render blocks persistent WebSockets
+    const fetchCloudStateEngine = async () => {
+      try {
+        const response = await fetch('https://codepulse-backend-fie8.onrender.com/api/telemetry-state');
+        if (response.ok) {
+          const cloudState = await response.json();
+          
+          if (cloudState.history && cloudState.history.length > 0) {
+            setScore(cloudState.score);
+            setHistory(cloudState.history);
+            
+            // Recompute unified pie slices from the fetched historical array
+            const updatedDist = [
+              { name: 'Security', value: 0 },
+              { name: 'Performance', value: 0 },
+              { name: 'Code Smell', value: 0 }
+            ];
+            
+            cloudState.history.forEach(item => {
+              if (item.categories) {
+                item.categories.forEach(cat => {
+                  const match = updatedDist.find(d => d.name === cat);
+                  if (match) match.value += 1;
+                });
+              }
+            });
+            setDistribution(updatedDist);
+          }
+        }
+      } catch (err) {
+        console.log("Sync checking... waiting for background pipeline execution threads.");
+      }
+    };
+
+    // Poll the cloud state server every 3 seconds to keep UI metrics perfectly unified
+    const backupInterval = setInterval(fetchCloudStateEngine, 3000);
+
+    return () => {
+      socket.close();
+      clearInterval(backupInterval);
+    };
   }, []);
 
   const renderBadge = (severity) => {

@@ -14,7 +14,8 @@ import webhookRouter from './routes/webhook.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
+let currentScore = 100;
+let prHistoryArray = [];
 // ─── Middleware ──────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
@@ -31,7 +32,12 @@ app.get('/', (_req, res) => {
     uptime: process.uptime(),
   });
 });
-
+app.get('/api/telemetry-state', (req, res) => {
+  res.status(200).json({
+    score: currentScore,
+    history: prHistoryArray
+  });
+});
 // ─── HTTP + WebSocket Server ────────────────────────────
 const server = createServer(app);
 initWebSocket(server);

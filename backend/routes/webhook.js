@@ -42,7 +42,8 @@ router.post('/', async (req, res) => {
   }
 
   // ── Only run the pipeline for opened or synchronize ──
-  if (action !== 'opened' && action !== 'synchronize') {
+ if (action !== 'opened' && action !== 'synchronize' && action !== 'reopened') {
+    console.log(`[Webhook] Action ignored: ${action}`);
     return res.status(200).json({ status: 'action_ignored', action });
   }
 

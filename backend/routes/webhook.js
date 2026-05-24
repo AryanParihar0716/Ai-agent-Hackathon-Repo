@@ -110,20 +110,6 @@ router.post('/', async (req, res) => {
       categories,
     };
 
-    // 💡 SAVE THE STATE GLOBALLY SO THE POLLING ENGINE CAN SEE IT
-    if (global.telemetryState) {
-      global.telemetryState.score = score;
-      
-      // Prevent duplicate logs from rendering if you hit "Redeliver" multiple times
-      const isDuplicate = global.telemetryState.history.some(
-        item => item.title === pr.title && item.repo === telemetryPayload.repo
-      );
-      
-      if (!isDuplicate) {
-        global.telemetryState.history.unshift(telemetryPayload);
-      }
-    }
-
     // 7 ── Broadcast score to dashboard (WebSocket channel fallback)
     broadcastScore(score, telemetryPayload);
 

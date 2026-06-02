@@ -7,7 +7,7 @@ import webhookRouter from './routes/webhook.js';
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+res.status(200).json({ score: telemetryState.score, history: telemetryState.history.map(item => ({ title: item.title, repo: item.repo, defectCount: item.defectCount, peakSeverity: item.peakSeverity, categories: item.categories })) });
 
 // Mount webhook router
 app.use('/webhook', webhookRouter);
